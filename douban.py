@@ -3,7 +3,7 @@ A simple Douban top250 movies parser
 """
 # coding:utf-8
 import requests
-import pandas as pd
+from pandas import DataFrame,ExcelWriter
 from bs4 import BeautifulSoup
 import logging
 import sys
@@ -30,7 +30,8 @@ def find_movieinfo(html_text):
             movies.append(tmp_dict)
     return movies
 ####download images into local directory
-def download_img_from_url(url_list,path=os.curdir+r"\image"):
+def download_img_from_url(url_list,path=os.getcwd()+"\image"):
+    print("dir is :",path)
     if os.path.exists(path)==False:
         os.makedirs(path)
     logging.info("\t Total images:{}".format(len(url_list)))
@@ -39,20 +40,20 @@ def download_img_from_url(url_list,path=os.curdir+r"\image"):
     img_path_dict={}
     if len(url_list)>0:
         for title,url in url_list:
-            full_path = os.path.join(path, title + ".jpg")
+            full_path = os.path.abspath(os.path.join(path, title + ".jpg"))
             print(full_path)
             if os.path.exists(full_path):
                 img_path_dict[title] = full_path
                 continue
             response=requests.get(url)
             try:
-                with open(full_path, "wb",encoding='utf-8') as infile:
+                with open(full_path, "wb") as infile:
                     infile.write(response.content)
-                logging.info("\tTotal:{}/{} image downloaded:{}".format(count,total_list,full_path))
+                logging.info("\tTotal:{}/{} downloaded".format(count,total_list))
                 img_path_dict[title]=full_path
                 count+=1
             except:
-                logging.error("Failed to download:{} {}".format(title,url))
+                logging.error("\tFailed to download:{} {}".format(title,full_path))
     return img_path_dict
 ####insert image url into excel
 def insert_img_to_excel(url_list,worksheet,df):
@@ -93,10 +94,8 @@ if __name__ == '__main__':
         movie_list += tmp_list
         logging.info("\tTotal: {} movies found".format(count))
     logging.info("\tcomplete")
-    movie_dataFrame=pd.DataFrame(movie_list)
-
-    ###save images
-    img_path_dict=download_img_from_url(movie_dataFrame["Poster"])
+    movie_dataFrame=DataFrame(movie_list)
+    img_path_dict = download_img_from_url(movie_dataFrame["Poster"])
     #movie_dataFrame["Title"]=movie_dataFrame["Title"].apply(lambda x: r'external:{}'.format(img_path_dict[x]))
     try:
         column_titles=["Title","Director","Rate","Quote","Link"]
@@ -104,7 +103,7 @@ if __name__ == '__main__':
         movie_dataFrame=movie_dataFrame.reindex(columns=column_titles)
     except:
         movie_dataFrame.to_excel("./movie.xlsx")
-    xlsxwriter=pd.ExcelWriter("./movie.xlsx",engine="xlsxwriter")
+    xlsxwriter=ExcelWriter("./movie.xlsx",engine="xlsxwriter")
     movie_dataFrame.to_excel(xlsxwriter, sheet_name="movies")
     worksheet = xlsxwriter.sheets['movies']
     #insert_img_to_excel(url_list=movie_dataFrame["Poster"], worksheet=worksheet,df=movie_dataFrame)
